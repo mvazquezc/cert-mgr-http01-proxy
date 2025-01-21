@@ -1,0 +1,86 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api-http01-challenge-proxy
+  namespace: openshift-kube-apiserver
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ingress-config-reader
+rules:
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - ingresses
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: api-http01-challenge-proxy-ingress-config-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ingress-config-reader
+subjects:
+- kind: ServiceAccount
+  name: api-http01-challenge-proxy
+  namespace: openshift-kube-apiserver
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: api-http01-challenge-proxy-hostnetworkv2-scc
+  namespace: openshift-kube-apiserver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:hostnetwork-v2
+subjects:
+- kind: ServiceAccount
+  name: api-http01-challenge-proxy
+  namespace: openshift-kube-apiserver
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app: api-http01-challenge-proxy
+  name: api-http01-challenge-proxy
+  namespace: openshift-kube-apiserver
+spec:
+  selector:
+    matchLabels:
+      app: api-http01-challenge-proxy
+  strategy: {}
+  template:
+    metadata:
+      labels:
+        app: api-http01-challenge-proxy
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/master: ""
+      hostNetwork: true
+      serviceAccountName: api-http01-challenge-proxy
+      tolerations:
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      containers:
+      - image: quay.io/mavazque/cert-mgr-http01-proxy:latest
+        name: cert-mgr-proxy
+        imagePullPolicy: Always
+        resources: {}
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - NET_BIND_SERVICE
+status: {}
