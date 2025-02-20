@@ -8,23 +8,24 @@ metadata:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: ingress-config-reader
+  name: proxy-cluster-config-reader
 rules:
 - apiGroups:
   - config.openshift.io
   resources:
   - ingresses
+  - infrastructures
   verbs:
   - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: api-http01-challenge-proxy-ingress-config-reader
+  name: api-http01-challenge-proxy-proxy-cluster-config-reader
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: ingress-config-reader
+  name: proxy-cluster-config-reader
 subjects:
 - kind: ServiceAccount
   name: api-http01-challenge-proxy
@@ -33,12 +34,12 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: api-http01-challenge-proxy-hostnetworkv2-scc
+  name: api-http01-challenge-proxy-privileged-scc
   namespace: openshift-kube-apiserver
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:openshift:scc:hostnetwork-v2
+  name: system:openshift:scc:privileged
 subjects:
 - kind: ServiceAccount
   name: api-http01-challenge-proxy
@@ -73,14 +74,17 @@ spec:
         operator: Exists
         effect: NoSchedule
       containers:
-      - image: quay.io/mavazque/cert-mgr-http01-proxy:latest
+      - image: quay.io/mavazque/cert-mgr-http01-proxy:smart-proxy
         name: cert-mgr-proxy
         imagePullPolicy: Always
         resources: {}
         securityContext:
+          runAsUser: 0
           capabilities:
             drop:
             - ALL
             add:
-            - NET_BIND_SERVICE
+            - NET_ADMIN
+            - NET_RAW
+            - DAC_READ_SEARCH
 status: {}
