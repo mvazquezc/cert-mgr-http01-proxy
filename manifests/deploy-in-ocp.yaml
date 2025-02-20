@@ -34,12 +34,12 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: api-http01-challenge-proxy-privileged-scc
+  name: api-http01-challenge-proxy-hostnetworkv2-scc
   namespace: openshift-kube-apiserver
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: system:openshift:scc:privileged
+  name: system:openshift:scc:hostnetwork-v2
 subjects:
 - kind: ServiceAccount
   name: api-http01-challenge-proxy
@@ -74,17 +74,12 @@ spec:
         operator: Exists
         effect: NoSchedule
       containers:
-      - image: quay.io/mavazque/cert-mgr-http01-proxy:smart-proxy
+      - image: quay.io/mavazque/cert-mgr-http01-proxy:smart-proxy-noauto
         name: cert-mgr-proxy
         imagePullPolicy: Always
         resources: {}
         securityContext:
-          runAsUser: 0
           capabilities:
             drop:
             - ALL
-            add:
-            - NET_ADMIN
-            - NET_RAW
-            - DAC_READ_SEARCH
 status: {}

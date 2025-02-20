@@ -7,12 +7,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"context"
 
-	"github.com/coreos/go-iptables/iptables"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -149,33 +147,4 @@ func GetProxyPort() int {
 		log.Printf("Port %d is in use or proxy cannot bind to it (capabilities?)\n", port)
 	}
 	return 0
-}
-
-func ConfigureIptables(apiVip string, port int) error {
-	ip, err := iptables.New()
-	if err != nil {
-		return err
-	}
-	rule := []string{
-		"-d", apiVip, // Destination IP
-		"-p", "tcp", // Protocol
-		"--dport", "80", // Incoming port
-		"-j", "REDIRECT", // Action
-		"--to-port", strconv.Itoa(port), // Redirect to proxy port
-	}
-	exists, err := ip.Exists("nat", "PREROUTING", rule...)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		err = ip.Append("nat", "PREROUTING", rule...)
-		if err != nil {
-			return err
-		}
-		log.Printf("Rule %s added successfully.\n", rule)
-	} else {
-		log.Printf("Rule %s already exists.\n", rule)
-	}
-
-	return nil
 }

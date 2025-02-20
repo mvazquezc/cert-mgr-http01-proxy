@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"regexp"
+	"strconv"
 )
 
 func main() {
@@ -44,11 +45,8 @@ func main() {
 	if proxyPort == 0 {
 		log.Fatalf("No ports available for the proxy to use")
 	}
-	// Configure IPTables
-	err = utils.ConfigureIptables(apiVip, proxyPort)
-	if err != nil {
-		log.Fatalf("Error configuring iptables: %v\n", err)
-	}
+	iptablesRule := "iptables -t nat -A PREROUTING -d " + apiVip + " -p tcp --dport 80 -j REDIRECT --to-port " + strconv.Itoa(proxyPort)
+	log.Printf("The following IPTables rule must be added for the proxy to work: %s", iptablesRule)
 	// Start the HTTP server
 	log.Printf("Reverse proxy listening on :%d, forwarding http01 challenges for %s to %s\n", proxyPort, apiHostname, backendServer)
 	addr := fmt.Sprintf(":%d", proxyPort)
