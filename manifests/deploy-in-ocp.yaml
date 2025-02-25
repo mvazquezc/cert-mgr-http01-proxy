@@ -15,8 +15,27 @@ rules:
   resources:
   - ingresses
   - infrastructures
+  - clusterversions
   verbs:
   - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: proxy-cluster-machineconfig-update
+rules:
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - machineconfigurations
+  verbs:
+  - update
+- apiGroups:
+  - machineconfiguration.openshift.io
+  resources:
+  - machineconfigs
+  verbs:
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -26,6 +45,20 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: proxy-cluster-config-reader
+subjects:
+- kind: ServiceAccount
+  name: api-http01-challenge-proxy
+  namespace: openshift-kube-apiserver
+---
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: api-http01-challenge-proxy-proxy-cluster-machineconfig-update
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: proxy-cluster-machineconfig-update
 subjects:
 - kind: ServiceAccount
   name: api-http01-challenge-proxy
@@ -74,7 +107,7 @@ spec:
         operator: Exists
         effect: NoSchedule
       containers:
-      - image: quay.io/mavazque/cert-mgr-http01-proxy:smart-proxy-noauto
+      - image: quay.io/mavazque/cert-mgr-http01-proxy:auto-nftables
         name: cert-mgr-proxy
         imagePullPolicy: Always
         resources: {}

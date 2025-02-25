@@ -2,26 +2,37 @@ package main
 
 import (
 	utils "certmgrhttp01proxy/pkg"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"regexp"
-	"strconv"
 )
 
 func main() {
-	apiHostname, appsVip, apiVip, platformType, err := utils.GetOCPEnvDetails()
+	apiHostname, appsVip, apiVip, platformType, clusterVersion, err := utils.GetOCPEnvDetails()
 	if err != nil {
 		log.Fatalf("Error getting OCP environment details: %v\n", err)
 	}
-	log.Printf("OCP API: %s, API VIP: %s, APPS VIP: %s, Platform: %s\n", apiHostname, apiVip, appsVip, platformType)
+	log.Printf("OCP API: %s, API VIP: %s, APPS VIP: %s, Platform: %s, Version: %s\n", apiHostname, apiVip, appsVip, platformType, clusterVersion)
+
+	// We only support OCP 4.17+
+	err = utils.SupportedOCPVersion(clusterVersion)
+	if err != nil {
+		log.Fatalf("Detected non-supported version: %v\n", err)
+	}
+
 	// If APPS VIP == API VIP we do not need the proxy
 	if appsVip == apiVip {
 		log.Printf("API VIP and APPS VIP are equal, no proxy needed")
 		os.Exit(0)
 	}
 
+	// Create NFTRules MachineConfigs
+	utils.CreateNFTablesRuleMachineConfig(apiVip, "8888")
+	if err != nil {
+		log.Fatalf("Error creating nft rules machineconfig: %v\n", err)
+	}
+	log.Println("NFTables Rules MachineConfig created/updated")
 	// Our backend is the APPS VIP
 	backendServer := "http://" + appsVip + ":80"
 	proxy, err := utils.NewReverseProxy(backendServer)
@@ -40,20 +51,11 @@ func main() {
 		}
 	})
 
-	// Get a port
-	proxyPort := utils.GetProxyPort()
-	if proxyPort == 0 {
-		log.Fatalf("No ports available for the proxy to use")
-	}
-	iptablesRule := "iptables -t nat -A PREROUTING -d " + apiVip + " -p tcp --dport 80 -j REDIRECT --to-port " + strconv.Itoa(proxyPort)
-	log.Printf("The following IPTables rule must be added for the proxy to work: %s", iptablesRule)
 	// Start the HTTP server
-	log.Printf("Reverse proxy listening on :%d, forwarding http01 challenges for %s to %s\n", proxyPort, apiHostname, backendServer)
-	addr := fmt.Sprintf(":%d", proxyPort)
-	err = http.ListenAndServe(addr, nil)
+
+	log.Printf("Reverse proxy listening on :8888, forwarding http01 challenges for %s to %s\n", apiHostname, backendServer)
+	err = http.ListenAndServe(":8888", nil)
 	if err != nil {
 		log.Fatalf("Error starting proxy: %v\n", err)
 	}
 }
-
-// TODO: When creating the IPTables rule we need to use the API VIP

@@ -1,0 +1,15 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: acme-ca
+spec:
+  acme:
+    preferredChain: ""
+    caBundle: <changeMe>
+    privateKeySecretRef:
+      name: acme-ca-issuer-account-key   
+    server: https://acme-ca.example.com:443/acme/acme/directory 
+    solvers:
+    - http01:
+        ingress:
+          ingressClassName: openshift-default
